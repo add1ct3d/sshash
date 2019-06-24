@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 {
 	raw();
 	noecho();
-	//initscr();
+	initscr();
 	ssh_session SSH;
 	int rc;
 	int port = 22;
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 		rc = ssh_userauth_password(SSH, NULL, pass);
 		if(rc != SSH_AUTH_SUCCESS)
 		{
-			printf("%s:%s:%s\n", argv[1], argv[2], pass);
+			mvprintw(0, 0, "%s:%s:%s\n", argv[1], argv[2], pass);
 			refresh();
 			continue;
 		}
