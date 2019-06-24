@@ -67,6 +67,7 @@ int main(int argc, char **argv)
 			printf("Password is %s\n", pass);
 			ssh_disconnect(SSH);
 			ssh_free(SSH);
+			#pragma omp critical
 			X = 0xffffffffe;
 		}
 	}
