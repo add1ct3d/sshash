@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 			{
 				#pragma omp critical
 				{
-					mvprintw(0, 0, "Try %d:%s:%s:%s\n", (X+1)*nt-1, argv[1], argv[2], pass);
+					mvprintw(0, 0, "%s:%s:%s\n", argv[1], argv[2], pass);
 					refresh();
 				}
 				continue;
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 				X = 0xffffffffe;//break
 			}
 		}
-		//end ncurses graciously
+		//end ncurses gracefully
 		#pragma omp critical
 		endwin();
 	}
